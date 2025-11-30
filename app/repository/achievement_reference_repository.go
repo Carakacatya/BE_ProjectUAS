@@ -1,73 +1,131 @@
 package repository
 
 import (
-    "context"
-    "projectuasbe/app/model"
-    "projectuasbe/database"
+	"context"
+	"projectuasbe/app/model"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type AchievementReferenceRepository interface {
-    Insert(ctx context.Context, ref *model.AchievementReference) error
-    GetByStudent(ctx context.Context, studentID string) ([]model.AchievementReference, error)
+	Create(ctx context.Context, ref *model.AchievementReference) error
+	UpdateStatus(ctx context.Context, id string, status string, note *string, verifiedBy *string) error
+	FindByStudent(ctx context.Context, studentID string) ([]model.AchievementReference, error)
+	FindByID(ctx context.Context, id string) (*model.AchievementReference, error)
+	SoftDelete(ctx context.Context, id string) error
 }
 
-type achievementReferenceRepository struct{}
-
-func NewAchievementReferenceRepository() AchievementReferenceRepository {
-    return &achievementReferenceRepository{}
+type achievementReferenceRepository struct {
+	db *pgxpool.Pool
 }
 
-func (r *achievementReferenceRepository) Insert(ctx context.Context, ref *model.AchievementReference) error {
-    db := database.Postgres
-
-    query := `
-        INSERT INTO achievement_references 
-        (id, student_id, mongo_achievement_id, status, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, NOW(), NOW())
-    `
-
-    _, err := db.Exec(
-        ctx,
-        query,
-        ref.ID, ref.StudentID, ref.MongoAchievementID, ref.Status,
-    )
-
-    return err
+func NewAchievementReferenceRepository(db *pgxpool.Pool) AchievementReferenceRepository {
+	return &achievementReferenceRepository{
+		db: db,
+	}
 }
 
-func (r *achievementReferenceRepository) GetByStudent(ctx context.Context, studentID string) ([]model.AchievementReference, error) {
-    db := database.Postgres
+func (r *achievementReferenceRepository) Create(ctx context.Context, ref *model.AchievementReference) error {
+	query := `
+		INSERT INTO achievement_references 
+		(student_id, mongo_achievement_id, status)
+		VALUES ($1, $2, 'draft')
+		RETURNING id;
+	`
 
-    query := `
-        SELECT id, student_id, mongo_achievement_id, status, 
-               submitted_at, verified_at, verified_by, rejection_note,
-               created_at, updated_at, is_deleted, deleted_at
-        FROM achievement_references
-        WHERE student_id = $1
-    `
+	return r.db.QueryRow(ctx, query,
+		ref.StudentID, ref.MongoAchievementID,
+	).Scan(&ref.ID)
+}
 
-    rows, err := db.Query(ctx, query, studentID)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+func (r *achievementReferenceRepository) UpdateStatus(ctx context.Context, id string, status string, note *string, verifiedBy *string) error {
+	query := `
+		UPDATE achievement_references SET 
+			status = $1,
+			rejection_note = $2,
+			verified_by = $3,
+			updated_at = NOW()
+		WHERE id = $4
+	`
 
-    refs := []model.AchievementReference{}
+	_, err := r.db.Exec(ctx, query,
+		status, note, verifiedBy, id,
+	)
 
-    for rows.Next() {
-        var ref model.AchievementReference
-        err := rows.Scan(
-            &ref.ID, &ref.StudentID, &ref.MongoAchievementID, &ref.Status,
-            &ref.SubmittedAt, &ref.VerifiedAt, &ref.VerifiedBy,
-            &ref.RejectionNote, &ref.CreatedAt, &ref.UpdatedAt,
-            &ref.IsDeleted, &ref.DeletedAt,
-        )
-        if err != nil {
-            return nil, err
-        }
+	return err
+}
 
-        refs = append(refs, ref)
-    }
+func (r *achievementReferenceRepository) FindByStudent(ctx context.Context, studentID string) ([]model.AchievementReference, error) {
+	query := `
+		SELECT id, student_id, mongo_achievement_id, status,
+			   submitted_at, verified_at, verified_by, rejection_note,
+			   created_at, updated_at,
+			   is_deleted, deleted_at
+		FROM achievement_references
+		WHERE student_id=$1 AND is_deleted=false
+	`
 
-    return refs, nil
+	rows, err := r.db.Query(ctx, query, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []model.AchievementReference
+
+	for rows.Next() {
+		var a model.AchievementReference
+		err := rows.Scan(
+			&a.ID, &a.StudentID, &a.MongoAchievementID,
+			&a.Status, &a.SubmittedAt, &a.VerifiedAt, &a.VerifiedBy,
+			&a.RejectionNote, &a.CreatedAt, &a.UpdatedAt,
+			&a.IsDeleted, &a.DeletedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		list = append(list, a)
+	}
+
+	return list, nil
+}
+
+func (r *achievementReferenceRepository) FindByID(ctx context.Context, id string) (*model.AchievementReference, error) {
+	query := `
+		SELECT id, student_id, mongo_achievement_id, status,
+			   submitted_at, verified_at, verified_by, rejection_note,
+			   created_at, updated_at,
+			   is_deleted, deleted_at
+		FROM achievement_references
+		WHERE id=$1
+	`
+
+	row := r.db.QueryRow(ctx, query, id)
+
+	var a model.AchievementReference
+	err := row.Scan(
+		&a.ID, &a.StudentID, &a.MongoAchievementID,
+		&a.Status, &a.SubmittedAt, &a.VerifiedAt, &a.VerifiedBy,
+		&a.RejectionNote, &a.CreatedAt, &a.UpdatedAt,
+		&a.IsDeleted, &a.DeletedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &a, nil
+}
+
+func (r *achievementReferenceRepository) SoftDelete(ctx context.Context, id string) error {
+	query := `
+		UPDATE achievement_references 
+		SET is_deleted = true,
+		    deleted_at = NOW(),
+		    status = 'deleted'
+		WHERE id = $1
+	`
+	_, err := r.db.Exec(ctx, query, id)
+	return err
 }
