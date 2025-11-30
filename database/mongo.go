@@ -1,16 +1,35 @@
 package database
 
 import (
-    "context"
-    "go.mongodb.org/mongo-driver/mongo"
-    "go.mongodb.org/mongo-driver/mongo/options"
+	"context"
+	"log"
+	"time"
+
+	"projectuasbe/config"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func ConnectMongo() (*mongo.Database, error) {
-    client, err := mongo.Connect(context.Background(), options.Client().ApplyURI("mongodb://localhost:27017"))
-    if err != nil {
-        return nil, err
-    }
+var MongoDB *mongo.Database
 
-    return client.Database("uas_be_mongo"), nil
+func InitMongo() {
+	cfg := config.AppConfig
+
+	clientOptions := options.Client().ApplyURI(cfg.MongoURI)
+	client, err := mongo.NewClient(clientOptions)
+	if err != nil {
+		log.Fatalf("❌ Failed to create Mongo client: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = client.Connect(ctx)
+	if err != nil {
+		log.Fatalf("❌ Failed to connect MongoDB: %v", err)
+	}
+
+	MongoDB = client.Database(cfg.MongoDB)
+	log.Println("✅ MongoDB connected successfully")
 }

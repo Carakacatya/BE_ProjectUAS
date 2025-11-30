@@ -1,15 +1,21 @@
 package main
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"log"
+
+	"projectuasbe/config"
+	"projectuasbe/database"
 )
 
 func main() {
-	app := fiber.New()
+	// Load .env
+	config.LoadConfig()
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello from Fiber 🚀")
-	})
+	// Init DB
+	database.InitPostgres()
+	database.InitMongo()
 
-	app.Listen(":3000")
+	log.Println("🚀 Server running on port", config.AppConfig.AppPort)
+
+	// TODO: initialize Fiber + routes here
 }
