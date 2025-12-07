@@ -2,133 +2,68 @@ package repository
 
 import (
 	"context"
-	"errors"
-	"projectuasbe/app/model"
-	"projectuasbe/database"
-	"time"
+	"database/sql"
 
-	"go.mongodb.org/mongo-driver/bson"
+	mongodb "projectuasbe/app/model/mongoDB"
+	model "projectuasbe/app/model/postgresql"
+
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type AchievementRepository interface {
-	Create(ctx context.Context, a *model.Achievement) (*mongo.InsertOneResult, error)
-	FindByID(ctx context.Context, id string) (*model.Achievement, error)
-	FindByStudent(ctx context.Context, studentID string) ([]model.Achievement, error)
-	Update(ctx context.Context, id string, update bson.M) error
-	SoftDelete(ctx context.Context, id string) error
+	GetStudentByUserID(ctx context.Context, userID uuid.UUID) (*model.Student, error)
+	SaveAchievementMongo(ctx context.Context, achievement mongodb.Achievement) (string, error)
+	SaveAchievementReference(ctx context.Context, ref model.AchievementReference) error
 }
 
-type achievementRepository struct {
-	col *mongo.Collection
+type achievementRepo struct {
+	pgDB      *sql.DB
+	mongoColl *mongo.Collection
 }
 
-func NewAchievementRepository() AchievementRepository {
-	return &achievementRepository{
-		col: database.MongoDB.Collection("achievements"),
+func NewAchievementRepository(pgDB *sql.DB, mongoColl *mongo.Collection) AchievementRepository {
+	return &achievementRepo{
+		pgDB:      pgDB,
+		mongoColl: mongoColl,
 	}
 }
 
-//
-// ==============================
-//            CREATE
-// ==============================
-//
+// GetStudentByUserID mengambil data student dari Postgres berdasarkan user_id (akun login)
+func (r *achievementRepo) GetStudentByUserID(ctx context.Context, userID uuid.UUID) (*model.Student, error) {
+	query := `SELECT id, user_id, student_id, program_study, academic_year, advisor_id, created_at 
+              FROM students WHERE user_id = $1`
 
-func (r *achievementRepository) Create(ctx context.Context, a *model.Achievement) (*mongo.InsertOneResult, error) {
-	a.ID = primitive.NewObjectID().Hex()
-	a.CreatedAt = time.Now()
-	a.UpdatedAt = time.Now()
-	a.Status = "draft"
-	a.DeletedAt = nil
-
-	return r.col.InsertOne(ctx, a)
-}
-
-//
-// ==============================
-//            FIND BY ID
-// ==============================
-//
-
-func (r *achievementRepository) FindByID(ctx context.Context, id string) (*model.Achievement, error) {
-	objID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, errors.New("invalid ID format")
-	}
-
-	var result model.Achievement
-	err = r.col.FindOne(ctx, bson.M{"_id": objID}).Decode(&result)
+	var s model.Student
+	err := r.pgDB.QueryRowContext(ctx, query, userID).Scan(
+		&s.ID, &s.UserID, &s.StudentID, &s.Program_Study,
+		&s.Academic_Year, &s.AdvisorID, &s.Created_at,
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	return &result, nil
+	return &s, nil
 }
 
-//
-// ==============================
-//       FIND BY STUDENT ID
-// ==============================
-//
-
-func (r *achievementRepository) FindByStudent(ctx context.Context, studentID string) ([]model.Achievement, error) {
-	cursor, err := r.col.Find(ctx, bson.M{
-		"studentId": studentID,
-		"status": bson.M{"$ne": "deleted"},
-	})
+// SaveAchievementMongo menyimpan detail lengkap prestasi ke MongoDB
+func (r *achievementRepo) SaveAchievementMongo(ctx context.Context, achievement mongodb.Achievement) (string, error) {
+	res, err := r.mongoColl.InsertOne(ctx, achievement)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	defer cursor.Close(ctx)
-
-	var results []model.Achievement
-	err = cursor.All(ctx, &results)
-	return results, err
+	// Mengembalikan ID Mongo dalam bentuk Hex String
+	return res.InsertedID.(primitive.ObjectID).Hex(), nil
 }
 
-//
-// ==============================
-//             UPDATE
-// ==============================
-//
+// SaveAchievementReference menyimpan referensi status ke PostgreSQL
+func (r *achievementRepo) SaveAchievementReference(ctx context.Context, ref model.AchievementReference) error {
+	query := `INSERT INTO achievement_references (
+		id, student_id, mongo_achievement_id, status, created_at, updated_at
+	) VALUES ($1, $2, $3, $4, $5, $6)`
 
-func (r *achievementRepository) Update(ctx context.Context, id string, update bson.M) error {
-	objID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return errors.New("invalid ID format")
-	}
-
-	update["updatedAt"] = time.Now()
-
-	_, err = r.col.UpdateByID(ctx, objID, bson.M{
-		"$set": update,
-	})
-	return err
-}
-
-//
-// ==============================
-//          SOFT DELETE
-// ==============================
-//
-
-func (r *achievementRepository) SoftDelete(ctx context.Context, id string) error {
-	objID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return errors.New("invalid ID format")
-	}
-
-	now := time.Now()
-
-	_, err = r.col.UpdateByID(ctx, objID, bson.M{
-		"$set": bson.M{
-			"status":    "deleted",
-			"deletedAt": now,
-			"updatedAt": now,
-		},
-	})
-
+	_, err := r.pgDB.ExecContext(ctx, query,
+		ref.ID, ref.StudentID, ref.MongoAchievementID, ref.Status, ref.CreatedAt, ref.UpdatedAt,
+	)
 	return err
 }
