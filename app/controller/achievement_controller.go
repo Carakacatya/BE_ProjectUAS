@@ -2,9 +2,8 @@ package controller
 
 import (
 	"context"
-	"projectuasbe/app/model"
 	"projectuasbe/app/service"
-
+	"projectuasbe/app/model/MongoDB"
 	"github.com/gofiber/fiber/v2"
 )
 
