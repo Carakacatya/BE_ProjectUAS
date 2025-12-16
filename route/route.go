@@ -45,6 +45,7 @@ func SetupRoutes(app *fiber.App, db *sql.DB) {
 
 	achievementRepo := repository.NewAchievementRepository(db, mongoColl)
 	achievementService := service.NewAchievementService(achievementRepo)
+
 	// Achievements Routes
 		achievements := API.Group("/achievements")
 		achievements.Use(middleware.AuthMiddleware(""))
@@ -65,4 +66,18 @@ func SetupRoutes(app *fiber.App, db *sql.DB) {
 
 		achievements.Post("/:id/attachments", achievementService.UploadAttachmentEndpoint)
 		achievements.Get("/statistics", achievementService.GetAchievementStatisticsEndpoint)
+	
+	// Students Routes
+		students := API.Group("/students")
+		students.Use(middleware.AuthMiddleware(""))
+		students.Get("/", userService.GetStudentsEndpoint)
+		students.Get("/:id", userService.GetStudentByIDEndpoint)
+		students.Get("/:id/achievements", userService.GetStudentAchievementsEndpoint)
+		students.Put("/:id/advisor", middleware.AuthMiddleware("manage_users"), userService.UpdateStudentAdvisorEndpoint)
+
+	// Lecturers Routes
+		lecturers := API.Group("/lecturers")
+		lecturers.Use(middleware.AuthMiddleware(""))
+		lecturers.Get("/", userService.GetLecturersEndpoint)
+		lecturers.Get("/:id/advisees", userService.GetLecturerAdviseesEndpoint)
 }
