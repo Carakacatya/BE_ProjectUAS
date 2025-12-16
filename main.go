@@ -2,60 +2,52 @@ package main
 
 import (
 	"log"
-	"projectuasbe/app/controller"
-	"projectuasbe/app/repository"
-	"projectuasbe/app/service"
 	"projectuasbe/config"
 	"projectuasbe/database"
-	"projectuasbe/routes"
+	"projectuasbe/route"
 
-	"github.com/gofiber/fiber/v2"
+	_ "projectuasbe/docs" // Import swagger docs
+
+	fiberSwagger "github.com/swaggo/fiber-swagger"
 )
 
+// Alias untuk swagger wrapper
+var swaggerWrapper = fiberSwagger.WrapHandler
+
+// @title UAS Backend API
+// @version 1.0
+// @description API untuk sistem manajemen prestasi mahasiswa
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.email support@example.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
 func main() {
-	// Load .env
-	config.LoadConfig()
+	cfg := config.LoadConfig()
+	app := config.NewFiber()
 
-	// Init Databases
-	database.InitPostgres()
-	database.InitMongo()
+	db := database.ConnectPostgres(cfg)
+	mongoClient := database.ConnectMongoDB(cfg.MongoURI)
+	mongoColl := database.GetCollection(mongoClient, cfg.MongoDBName, "achievements")
 
-	app := fiber.New()
+	route.SetupRoutes(app, db, mongoColl)
 
-	// ===========================
-	// REPOSITORIES
-	// ===========================
-	userRepo := repository.NewUserRepository(database.Postgres)
-	studentRepo := repository.NewStudentRepository(database.Postgres)
-	lecturerRepo := repository.NewLecturerRepository(database.Postgres)
-	achievementRefRepo := repository.NewAchievementReferenceRepository(database.Postgres)
+	// Swagger route
+	app.Get("/swagger/*", swaggerWrapper)
 
-	// ===========================
-	// SERVICES
-	// ===========================
-	userService := service.NewUserService(userRepo)
-	studentService := service.NewStudentService(studentRepo)
-	lecturerService := service.NewLecturerService(lecturerRepo)
-	achievementRefService := service.NewAchievementReferenceService(achievementRefRepo)
+	log.Printf("Server running on port %s", cfg.AppPort)
+	log.Printf("Swagger documentation available at http://localhost:%s/swagger/index.html", cfg.AppPort)
 
-	// ===========================
-	// CONTROLLERS
-	// ===========================
-	userController := controller.NewUserController(userService)
-	studentController := controller.NewStudentController(studentService)
-	lecturerController := controller.NewLecturerController(lecturerService)
-	achievementRefController := controller.NewAchievementReferenceController(achievementRefService)
-
-	// ===========================
-	// ROUTES
-	// ===========================
-	app.Group("/api")
-
-	routes.UserRoutes(app, userController)
-	routes.StudentRoutes(app, studentController)
-	routes.LecturerRoutes(app, lecturerController)
-	routes.AchievementReferenceRoutes(app, achievementRefController)
-
-	log.Println("🚀 Server running on port", config.AppConfig.AppPort)
-	app.Listen(":" + config.AppConfig.AppPort)
+	log.Fatal(app.Listen(":" + cfg.AppPort))
 }

@@ -135,3 +135,19 @@ type StudentReportResponse struct {
 	Statistics   AchievementStatistics    `json:"statistics"`
 	Achievements []AchievementWithStudent `json:"recent_achievements"`
 }
+
+type StudentWithUser struct {
+	ID           uuid.UUID `json:"id"`
+	UserID       uuid.UUID `json:"user_id"`
+	StudentID    string    `json:"student_id"`
+	ProgramStudy string    `json:"program_study"`
+	AcademicYear string    `json:"academic_year"`
+
+	AdvisorID  *uuid.UUID `json:"advisor_id"`
+	CreatedAt  time.Time `json:"created_at"`
+
+	Username    string `json:"username"`
+	FullName    string `json:"full_name"`
+	Email       string `json:"email"`
+	AdvisorName string `json:"advisor_name"`
+}

@@ -189,6 +189,7 @@ func (r *achievementRepo) GetLecturerByUserID(ctx context.Context, userID uuid.U
 func (r *achievementRepo) GetStudentIDsByAdvisorID(ctx context.Context, advisorID uuid.UUID) ([]uuid.UUID, error) {
 	query := `SELECT id FROM students WHERE advisor_id = $1`
 
+
 	rows, err := r.pgDB.QueryContext(ctx, query, advisorID)
 	if err != nil {
 		return nil, err
@@ -895,10 +896,19 @@ func (r *achievementRepo) GetStudentWithUserByID(ctx context.Context, studentID 
 	var student model.StudentWithUser
 
 	err := r.pgDB.QueryRowContext(ctx, query, studentID).Scan(
-		&student.ID, &student.UserID, &student.StudentID, &student.Program_Study,
-		&student.Academic_Year, &student.AdvisorID, &student.Created_at,
-		&student.Username, &student.FullName, &student.Email, &student.AdvisorName,
+		&student.ID,
+		&student.UserID,
+		&student.StudentID,
+		&student.ProgramStudy,
+		&student.AcademicYear,
+		&student.AdvisorID,
+		&student.CreatedAt,
+		&student.Username,
+		&student.FullName,
+		&student.Email,
+		&student.AdvisorName,
 	)
+
 	if err != nil {
 		return nil, err
 	}

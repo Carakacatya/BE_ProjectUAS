@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"context"
 	"database/sql"
 	"time"
@@ -135,24 +136,25 @@ func (r *userRepo) UpdateUser(ctx context.Context, userID uuid.UUID, req *model.
 	argCount := 1
 
 	if req.Email != "" {
-		query += `email = $` + string(rune(argCount+'0')) + `, `
+		query += fmt.Sprintf("email = $%d, ", argCount)
 		args = append(args, req.Email)
 		argCount++
 	}
 
 	if req.FullName != "" {
-		query += `full_name = $` + string(rune(argCount+'0')) + `, `
+		query += fmt.Sprintf("full_name = $%d, ", argCount)
 		args = append(args, req.FullName)
 		argCount++
 	}
 
 	if req.IsActive != nil {
-		query += `is_active = $` + string(rune(argCount+'0')) + `, `
+		query += fmt.Sprintf("is_active = $%d, ", argCount)
 		args = append(args, *req.IsActive)
 		argCount++
 	}
 
-	query += `updated_at = $` + string(rune(argCount+'0')) + ` WHERE id = $` + string(rune(argCount+1+'0'))
+	// updated_at
+	query += fmt.Sprintf("updated_at = $%d WHERE id = $%d", argCount, argCount+1)
 	args = append(args, time.Now(), userID)
 
 	_, err := r.db.ExecContext(ctx, query, args...)
@@ -271,8 +273,8 @@ func (r *userRepo) GetAllStudents(ctx context.Context, page, limit int) ([]model
 		var student model.StudentWithUser
 
 		err := rows.Scan(
-			&student.ID, &student.UserID, &student.StudentID, &student.Program_Study,
-			&student.Academic_Year, &student.AdvisorID, &student.Created_at,
+			&student.ID, &student.UserID, &student.StudentID, &student.ProgramStudy,
+			&student.AcademicYear, &student.AdvisorID, &student.CreatedAt,
 			&student.Username, &student.FullName, &student.Email, &student.AdvisorName,
 		)
 		if err != nil {
@@ -299,8 +301,8 @@ func (r *userRepo) GetStudentWithUserByID(ctx context.Context, studentID uuid.UU
 	var student model.StudentWithUser
 
 	err := r.db.QueryRowContext(ctx, query, studentID).Scan(
-		&student.ID, &student.UserID, &student.StudentID, &student.Program_Study,
-		&student.Academic_Year, &student.AdvisorID, &student.Created_at,
+		&student.ID, &student.UserID, &student.StudentID, &student.ProgramStudy,
+		&student.AcademicYear, &student.AdvisorID, &student.CreatedAt,
 		&student.Username, &student.FullName, &student.Email, &student.AdvisorName,
 	)
 	if err != nil {
@@ -410,7 +412,7 @@ func (r *userRepo) GetAllLecturers(ctx context.Context, page, limit int) ([]mode
 
 		err := rows.Scan(
 			&lecturer.ID, &lecturer.UserID, &lecturer.LecturerID, &lecturer.Department,
-			&lecturer.Created_at, &lecturer.Username, &lecturer.FullName, &lecturer.Email,
+			&lecturer.CreatedAt, &lecturer.Username, &lecturer.FullName, &lecturer.Email,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -474,8 +476,8 @@ func (r *userRepo) GetStudentsByAdvisorID(ctx context.Context, advisorID uuid.UU
 		var student model.StudentWithUser
 
 		err := rows.Scan(
-			&student.ID, &student.UserID, &student.StudentID, &student.Program_Study,
-			&student.Academic_Year, &student.AdvisorID, &student.Created_at,
+			&student.ID, &student.UserID, &student.StudentID, &student.ProgramStudy,
+			&student.AcademicYear, &student.AdvisorID, &student.CreatedAt,
 			&student.Username, &student.FullName, &student.Email, &student.AdvisorName,
 		)
 		if err != nil {

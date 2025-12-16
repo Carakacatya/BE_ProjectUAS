@@ -60,7 +60,7 @@ func extractUserIDFromClaimsAuth(c *fiber.Ctx) (uuid.UUID, error) {
 func (s *authService) Login(ctx context.Context, req model.LoginRequest) (*model.LoginResponse, error) {
 	identifier := req.Username
 		if identifier == "" {
-			identifier = req.Email
+			identifier = req.Username
 		}
 
 	if identifier == "" {

@@ -3,13 +3,10 @@ package repository
 import (
 	"database/sql"
 	"errors"
-	
 	model "projectuasbe/app/model/Postgresql"
-	
 
 	"github.com/google/uuid"
 )
-
 
 type AuthRepository struct {
 	DB *sql.DB
