@@ -3,12 +3,13 @@ package repository
 import (
 	"fmt"
 	"context"
-	"database/sql"
 	"time"
 
 	model "projectuasbe/app/model/Postgresql"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 )
 
 type UserRepository interface {
@@ -41,10 +42,10 @@ type UserRepository interface {
 }
 
 type userRepo struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-func NewUserRepository(db *sql.DB) UserRepository {
+func NewUserRepository(db *pgxpool.Pool) UserRepository {
 	return &userRepo{db: db}
 }
 
@@ -53,7 +54,7 @@ func (r *userRepo) CreateUser(ctx context.Context, user *model.Users) error {
 	query := `INSERT INTO users (id, username, email, password_hash, full_name, role_id, is_active, created_at, updated_at)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.db.Exec(ctx, query,
 		user.ID, user.Username, user.Email, user.PasswordHash,
 		user.FullName, user.RoleID, user.ISActive, user.CreatedAt, user.UpdatedAt,
 	)
@@ -70,7 +71,7 @@ func (r *userRepo) GetUserByID(ctx context.Context, userID uuid.UUID) (*model.Us
 	var user model.Users
 	var roleName string
 
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(
+	err := r.db.QueryRow(ctx, query, userID).Scan(
 		&user.ID, &user.Username, &user.Email, &user.PasswordHash,
 		&user.FullName, &user.RoleID, &user.ISActive,
 		&user.CreatedAt, &user.UpdatedAt, &roleName,
@@ -87,7 +88,7 @@ func (r *userRepo) GetAllUsers(ctx context.Context, page, limit int) ([]model.Us
 	// Count total
 	var total int
 	countQuery := `SELECT COUNT(*) FROM users`
-	err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+	err := r.db.QueryRow(ctx, countQuery).Scan(&total)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -100,7 +101,7 @@ func (r *userRepo) GetAllUsers(ctx context.Context, page, limit int) ([]model.Us
               ORDER BY u.created_at DESC
               LIMIT $1 OFFSET $2`
 
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -157,21 +158,21 @@ func (r *userRepo) UpdateUser(ctx context.Context, userID uuid.UUID, req *model.
 	query += fmt.Sprintf("updated_at = $%d WHERE id = $%d", argCount, argCount+1)
 	args = append(args, time.Now(), userID)
 
-	_, err := r.db.ExecContext(ctx, query, args...)
+	_, err := r.db.Exec(ctx, query, args...)
 	return err
 }
 
 // DeleteUser menghapus user (soft delete dengan set is_active = false)
 func (r *userRepo) DeleteUser(ctx context.Context, userID uuid.UUID) error {
 	query := `UPDATE users SET is_active = false, updated_at = $1 WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, time.Now(), userID)
+	_, err := r.db.Exec(ctx, query, time.Now(), userID)
 	return err
 }
 
 // UpdateUserRole mengupdate role user
 func (r *userRepo) UpdateUserRole(ctx context.Context, userID uuid.UUID, roleID uuid.UUID) error {
 	query := `UPDATE users SET role_id = $1, updated_at = $2 WHERE id = $3`
-	_, err := r.db.ExecContext(ctx, query, roleID, time.Now(), userID)
+	_, err := r.db.Exec(ctx, query, roleID, time.Now(), userID)
 	return err
 }
 
@@ -180,7 +181,7 @@ func (r *userRepo) CreateStudentProfile(ctx context.Context, student *model.Stud
 	query := `INSERT INTO students (id, user_id, student_id, program_study, academic_year, advisor_id, created_at)
               VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.db.Exec(ctx, query,
 		student.ID, student.UserID, student.StudentID, student.Program_Study,
 		student.Academic_Year, student.AdvisorID, student.Created_at,
 	)
@@ -192,7 +193,7 @@ func (r *userRepo) CreateLecturerProfile(ctx context.Context, lecturer *model.Le
 	query := `INSERT INTO lecturers (id, user_id, lecturer_id, department, created_at)
               VALUES ($1, $2, $3, $4, $5)`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.db.Exec(ctx, query,
 		lecturer.ID, lecturer.UserID, lecturer.LecturerID, lecturer.Department, lecturer.Created_at,
 	)
 	return err
@@ -201,7 +202,7 @@ func (r *userRepo) CreateLecturerProfile(ctx context.Context, lecturer *model.Le
 // UpdateStudentAdvisor mengupdate advisor mahasiswa
 func (r *userRepo) UpdateStudentAdvisor(ctx context.Context, studentID uuid.UUID, advisorID uuid.UUID) error {
 	query := `UPDATE students SET advisor_id = $1 WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, advisorID, studentID)
+	_, err := r.db.Exec(ctx, query, advisorID, studentID)
 	return err
 }
 
@@ -209,7 +210,7 @@ func (r *userRepo) UpdateStudentAdvisor(ctx context.Context, studentID uuid.UUID
 func (r *userRepo) CheckUsernameExists(ctx context.Context, username string) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)`
 	var exists bool
-	err := r.db.QueryRowContext(ctx, query, username).Scan(&exists)
+	err := r.db.QueryRow(ctx, query, username).Scan(&exists)
 	return exists, err
 }
 
@@ -217,7 +218,7 @@ func (r *userRepo) CheckUsernameExists(ctx context.Context, username string) (bo
 func (r *userRepo) CheckEmailExists(ctx context.Context, email string) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`
 	var exists bool
-	err := r.db.QueryRowContext(ctx, query, email).Scan(&exists)
+	err := r.db.QueryRow(ctx, query, email).Scan(&exists)
 	return exists, err
 }
 
@@ -226,7 +227,7 @@ func (r *userRepo) GetRoleByID(ctx context.Context, roleID uuid.UUID) (*model.Ro
 	query := `SELECT id, name, description, created_at FROM roles WHERE id = $1`
 
 	var role model.Roles
-	err := r.db.QueryRowContext(ctx, query, roleID).Scan(
+	err := r.db.QueryRow(ctx, query, roleID).Scan(
 		&role.ID, &role.Name, &role.Description, &role.Created_at,
 	)
 	if err != nil {
@@ -243,7 +244,7 @@ func (r *userRepo) GetAllStudents(ctx context.Context, page, limit int) ([]model
 	// Count total
 	var total int
 	countQuery := `SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = true`
-	err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+	err := r.db.QueryRow(ctx, countQuery).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -261,7 +262,7 @@ func (r *userRepo) GetAllStudents(ctx context.Context, page, limit int) ([]model
               ORDER BY s.created_at DESC
               LIMIT $1 OFFSET $2`
 
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -300,7 +301,7 @@ func (r *userRepo) GetStudentWithUserByID(ctx context.Context, studentID uuid.UU
 
 	var student model.StudentWithUser
 
-	err := r.db.QueryRowContext(ctx, query, studentID).Scan(
+	err := r.db.QueryRow(ctx, query, studentID).Scan(
 		&student.ID, &student.UserID, &student.StudentID, &student.ProgramStudy,
 		&student.AcademicYear, &student.AdvisorID, &student.CreatedAt,
 		&student.Username, &student.FullName, &student.Email, &student.AdvisorName,
@@ -319,7 +320,7 @@ func (r *userRepo) GetStudentByID(ctx context.Context, studentID uuid.UUID) (*mo
 
 	var student model.Student
 
-	err := r.db.QueryRowContext(ctx, query, studentID).Scan(
+	err := r.db.QueryRow(ctx, query, studentID).Scan(
 		&student.ID, &student.UserID, &student.StudentID, &student.Program_Study,
 		&student.Academic_Year, &student.AdvisorID, &student.Created_at,
 	)
@@ -335,7 +336,7 @@ func (r *userRepo) GetStudentAchievements(ctx context.Context, studentID uuid.UU
 	// Count total
 	var total int
 	countQuery := `SELECT COUNT(*) FROM achievement_references ar WHERE ar.student_id = $1 AND ar.status != 'deleted'`
-	err := r.db.QueryRowContext(ctx, countQuery, studentID).Scan(&total)
+	err := r.db.QueryRow(ctx, countQuery, studentID).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -351,7 +352,7 @@ func (r *userRepo) GetStudentAchievements(ctx context.Context, studentID uuid.UU
               ORDER BY ar.created_at DESC
               LIMIT $2 OFFSET $3`
 
-	rows, err := r.db.QueryContext(ctx, query, studentID, limit, offset)
+	rows, err := r.db.Query(ctx, query, studentID, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -384,7 +385,7 @@ func (r *userRepo) GetAllLecturers(ctx context.Context, page, limit int) ([]mode
 	// Count total
 	var total int
 	countQuery := `SELECT COUNT(*) FROM lecturers l JOIN users u ON l.user_id = u.id WHERE u.is_active = true`
-	err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+	err := r.db.QueryRow(ctx, countQuery).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -399,7 +400,7 @@ func (r *userRepo) GetAllLecturers(ctx context.Context, page, limit int) ([]mode
               ORDER BY l.created_at DESC
               LIMIT $1 OFFSET $2`
 
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.Query(ctx, query, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -431,7 +432,7 @@ func (r *userRepo) GetLecturerByID(ctx context.Context, lecturerID uuid.UUID) (*
 
 	var lecturer model.Lecturers
 
-	err := r.db.QueryRowContext(ctx, query, lecturerID).Scan(
+	err := r.db.QueryRow(ctx, query, lecturerID).Scan(
 		&lecturer.ID, &lecturer.UserID, &lecturer.LecturerID, &lecturer.Department, &lecturer.Created_at,
 	)
 	if err != nil {
@@ -446,7 +447,7 @@ func (r *userRepo) GetStudentsByAdvisorID(ctx context.Context, advisorID uuid.UU
 	// Count total
 	var total int
 	countQuery := `SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE s.advisor_id = $1 AND u.is_active = true`
-	err := r.db.QueryRowContext(ctx, countQuery, advisorID).Scan(&total)
+	err := r.db.QueryRow(ctx, countQuery, advisorID).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -464,7 +465,7 @@ func (r *userRepo) GetStudentsByAdvisorID(ctx context.Context, advisorID uuid.UU
               ORDER BY s.created_at DESC
               LIMIT $2 OFFSET $3`
 
-	rows, err := r.db.QueryContext(ctx, query, advisorID, limit, offset)
+	rows, err := r.db.Query(ctx, query, advisorID, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}

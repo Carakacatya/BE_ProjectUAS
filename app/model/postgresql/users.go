@@ -59,9 +59,18 @@ type ProfileData struct {
 	StudentID    string    `json:"student_id,omitempty"`
 	ProgramStudy string    `json:"program_study,omitempty"`
 	AcademicYear string    `json:"academic_year,omitempty"`
-	AdvisorID    uuid.UUID `json:"advisor_id,omitempty"`
+	AdvisorID    *uuid.UUID `json:"advisor_id,omitempty"`
 
 	// Lecturer fields
 	LecturerID string `json:"lecturer_id,omitempty"`
 	Department string `json:"department,omitempty"`
+}
+
+type UserProfileResponse struct {
+	ID        uuid.UUID    `json:"id"`
+	Username  string       `json:"username"`
+	Email     string       `json:"email"`
+	FullName  string       `json:"full_name"`
+	Role      string       `json:"role"`
+	Profile   *ProfileData `json:"profile,omitempty"`
 }

@@ -4,44 +4,27 @@ import (
 	"log"
 	"projectuasbe/config"
 	"projectuasbe/database"
-	"projectuasbe/route"
+	"projectuasbe/routes"
 
-	_ "projectuasbe/docs" // Import swagger docs
+	_ "projectuasbe/docs"
 
 	fiberSwagger "github.com/swaggo/fiber-swagger"
 )
 
-// Alias untuk swagger wrapper
 var swaggerWrapper = fiberSwagger.WrapHandler
 
-// @title UAS Backend API
-// @version 1.0
-// @description API untuk sistem manajemen prestasi mahasiswa
-// @termsOfService http://swagger.io/terms/
-
-// @contact.name API Support
-// @contact.email support@example.com
-
-// @license.name MIT
-// @license.url https://opensource.org/licenses/MIT
-
-// @host localhost:8080
-// @BasePath /api
-
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
-// @description Type "Bearer" followed by a space and JWT token.
-
 func main() {
-	cfg := config.LoadConfig()
+	config.LoadConfig()
+	cfg := config.AppConfig
+
 	app := config.NewFiber()
 
-	db := database.ConnectPostgres(cfg)
+	// init db
+	dbpool := database.NewPostgresDB(cfg) // harus *pgxpool.Pool
 	mongoClient := database.ConnectMongoDB(cfg.MongoURI)
-	mongoColl := database.GetCollection(mongoClient, cfg.MongoDBName, "achievements")
+	mongoColl := database.GetCollection(mongoClient, cfg.MongoDB, "achievements")
 
-	route.SetupRoutes(app, db, mongoColl)
+	routes.SetupRoutes(app, dbpool, mongoColl) // panggil SetupRoutes
 
 	// Swagger route
 	app.Get("/swagger/*", swaggerWrapper)
