@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 	"errors"
-	"time"
 	mongodb "projectuasbe/app/model/MongoDB"
 	model "projectuasbe/app/model/Postgresql"
 	"projectuasbe/app/repository"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
@@ -46,10 +46,16 @@ type AchievementService interface {
 	GetReportsStatisticsEndpoint(c *fiber.Ctx) error
 	GetStudentReportEndpoint(c *fiber.Ctx) error
 	UploadAttachmentEndpoint(c *fiber.Ctx) error
+	GetAllStudentIDs(ctx context.Context) ([]uuid.UUID, error)
 }
 
 type achievementService struct {
 	repo repository.AchievementRepository
+}
+
+// GetAllStudentIDs implements AchievementService.
+func (s *achievementService) GetAllStudentIDs(ctx context.Context) ([]uuid.UUID, error) {
+	panic("unimplemented")
 }
 
 func NewAchievementService(repo repository.AchievementRepository) AchievementService {
@@ -560,13 +566,15 @@ func (s *achievementService) GetAchievementStatistics(ctx context.Context, userI
 				return nil, errors.New("failed to get student list")
 			}
 		} else {
-			// Assume admin - get all students (or use filter if provided)
+			// ADMIN
 			if filters.StudentID != nil {
 				studentIDs = []uuid.UUID{*filters.StudentID}
 			} else {
-				// For admin without filter, we need to get all student IDs
-				// This is a simplified approach - in production, you might want to optimize this
-				return nil, errors.New("admin must provide student_id filter or implement get all students")
+				// ✅ ADMIN BOLEH AMBIL SEMUA MAHASISWA
+				studentIDs, err = s.repo.GetAllStudentIDs(ctx)
+				if err != nil {
+					return nil, errors.New("failed to get all students")
+				}
 			}
 		}
 	}

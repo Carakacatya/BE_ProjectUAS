@@ -9,12 +9,11 @@ import (
 	model "projectuasbe/app/model/Postgresql"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"github.com/jackc/pgx/v5/pgxpool"
-
 )
 
 type AchievementRepository interface {
@@ -48,6 +47,7 @@ type AchievementRepository interface {
 	AddAttachmentToAchievement(ctx context.Context, mongoAchievementID, fileName, fileURL, fileType string) error
 	GetStudentWithUserByID(ctx context.Context, studentID uuid.UUID) (*model.StudentWithUser, error)
 	GetStudentAchievements(ctx context.Context, studentID uuid.UUID, page, limit int) ([]model.AchievementWithStudent, int, error)
+	GetAllStudentIDs(ctx context.Context) ([]uuid.UUID, error)
 }
 
 type achievementRepo struct {
@@ -189,7 +189,6 @@ func (r *achievementRepo) GetLecturerByUserID(ctx context.Context, userID uuid.U
 // GetStudentIDsByAdvisorID mengambil list student IDs berdasarkan advisor_id
 func (r *achievementRepo) GetStudentIDsByAdvisorID(ctx context.Context, advisorID uuid.UUID) ([]uuid.UUID, error) {
 	query := `SELECT id FROM students WHERE advisor_id = $1`
-
 
 	rows, err := r.pgDB.Query(ctx, query, advisorID)
 	if err != nil {
@@ -964,4 +963,29 @@ func (r *achievementRepo) GetStudentAchievements(ctx context.Context, studentID 
 	}
 
 	return achievements, total, nil
+}
+
+func (r *achievementRepo) GetAllStudentIDs(ctx context.Context) ([]uuid.UUID, error) {
+	query := `SELECT id FROM students`
+
+	rows, err := r.pgDB.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return ids, nil
 }
