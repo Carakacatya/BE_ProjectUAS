@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http/httptest"
 	"testing"
-	"uas_backend/helper"
+	"projectuasbe/helper"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"

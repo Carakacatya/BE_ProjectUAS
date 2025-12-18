@@ -1,7 +1,7 @@
 package mocks
 
 import (
-	model "uas_backend/app/model/Postgresql"
+	model "projectuasbe/app/model/Postgresql"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"

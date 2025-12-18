@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 	"time"
-	"uas_backend/utils"
+	"projectuasbe/utils"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -2,8 +2,8 @@ package mocks
 
 import (
 	"context"
-	mongodb "uas_backend/app/model/MongoDB"
-	model "uas_backend/app/model/Postgresql"
+	mongodb "projectuasbe/app/model/MongoDB"
+	model "projectuasbe/app/model/Postgresql"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -209,4 +209,12 @@ func (m *MockAchievementRepository) GetStatusDistribution(ctx context.Context, s
 func (m *MockAchievementRepository) GetTotalAchievements(ctx context.Context, studentIDs []uuid.UUID, filters model.StatisticsFilters) (int, error) {
 	args := m.Called(ctx, studentIDs, filters)
 	return args.Int(0), args.Error(1)
+}
+
+func (m *MockAchievementRepository) GetAllStudentIDs(ctx context.Context) ([]uuid.UUID, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]uuid.UUID), args.Error(1)
 }

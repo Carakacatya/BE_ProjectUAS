@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"testing"
-	model "uas_backend/app/model/Postgresql"
-	"uas_backend/app/service"
-	"uas_backend/test/mocks"
+	model "projectuasbe/app/model/Postgresql"
+	"projectuasbe/app/service"
+	"projectuasbe/test/mocks"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -150,7 +150,7 @@ func TestUserService_CreateUser(t *testing.T) {
 				StudentID:    "12345",
 				ProgramStudy: "Computer Science",
 				AcademicYear: "2023",
-				AdvisorID:    advisorID,
+				AdvisorID:    &advisorID,
 			},
 		}
 

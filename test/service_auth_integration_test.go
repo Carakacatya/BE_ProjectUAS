@@ -3,9 +3,9 @@ package test
 import (
 	"testing"
 	"time"
-	model "uas_backend/app/model/Postgresql"
-	"uas_backend/app/repository"
-	"uas_backend/app/service"
+	model "projectuasbe/app/model/Postgresql"
+	"projectuasbe/app/repository"
+	"projectuasbe/app/service"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

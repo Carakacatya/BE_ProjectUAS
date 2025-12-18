@@ -90,4 +90,6 @@ func SetupRoutes(app *fiber.App, dbpool *pgxpool.Pool, mongoColl *mongo.Collecti
 	admin := API.Group("/admin")
 	admin.Use(middleware.RBAC("user:manage"))
 	admin.Get("/achievements", achievementService.GetAllAchievementsForAdminEndpoint)
+	admin.Get("/achievements/:id", achievementService.GetAchievementByIDEndpoint)
+
 }

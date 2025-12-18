@@ -2,7 +2,7 @@ package test
 
 import (
 	"testing"
-	"uas_backend/helper"
+	"projectuasbe/helper"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"

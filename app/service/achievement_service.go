@@ -47,6 +47,7 @@ type AchievementService interface {
 	GetStudentReportEndpoint(c *fiber.Ctx) error
 	UploadAttachmentEndpoint(c *fiber.Ctx) error
 	GetAllStudentIDs(ctx context.Context) ([]uuid.UUID, error)
+	GetAchievementAdminDetailEndpoint(c *fiber.Ctx) error
 }
 
 type achievementService struct {
@@ -55,7 +56,7 @@ type achievementService struct {
 
 // GetAllStudentIDs implements AchievementService.
 func (s *achievementService) GetAllStudentIDs(ctx context.Context) ([]uuid.UUID, error) {
-	panic("unimplemented")
+	return s.repo.GetAllStudentIDs(ctx)
 }
 
 func NewAchievementService(repo repository.AchievementRepository) AchievementService {
@@ -952,39 +953,46 @@ func (s *achievementService) GetAllAchievementsForAdminEndpoint(c *fiber.Ctx) er
 	})
 }
 func (s *achievementService) GetAchievementByIDEndpoint(c *fiber.Ctx) error {
-	userID, err := extractUserIDFromClaims(c)
+	ctx := c.Context()
+
+	// ⛔ ADMIN: ID = UUID POSTGRES
+	achievementID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(400).JSON(fiber.Map{
+			"error": "invalid achievement id format",
+		})
 	}
 
-	mongoAchievementID := c.Params("id")
-	if mongoAchievementID == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "Achievement ID is required"})
+	// 1️⃣ Ambil reference dari Postgres
+	ref, err := s.repo.GetAchievementReferenceByID(ctx, achievementID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "achievement not found",
+		})
 	}
 
-	result, err := s.GetAchievementByID(c.Context(), userID, mongoAchievementID)
+	// 2️⃣ Ambil detail dari Mongo pakai mongo_achievement_id
+	detail, err := s.repo.GetAchievementDetailFromMongo(
+		ctx,
+		ref.MongoAchievementID,
+	)
 	if err != nil {
-		switch err.Error() {
-		case "invalid achievement ID format":
-			return c.Status(400).JSON(fiber.Map{"error": err.Error()})
-		case "achievement not found":
-			return c.Status(404).JSON(fiber.Map{"error": err.Error()})
-		case "unauthorized: you can only view your own achievements":
-			return c.Status(403).JSON(fiber.Map{"error": err.Error()})
-		case "unauthorized: you can only view achievements of your advisees":
-			return c.Status(403).JSON(fiber.Map{"error": err.Error()})
-		case "unauthorized: access denied":
-			return c.Status(403).JSON(fiber.Map{"error": err.Error()})
-		case "student data not found":
-			return c.Status(404).JSON(fiber.Map{"error": err.Error()})
-		default:
-			return c.Status(500).JSON(fiber.Map{"error": "Failed to get achievement"})
-		}
+		return c.Status(404).JSON(fiber.Map{
+			"error": "achievement detail not found in mongo",
+		})
 	}
 
 	return c.JSON(fiber.Map{
 		"status": "success",
-		"data":   result,
+		"data": fiber.Map{
+			"reference": ref,
+			"detail":    detail,
+		},
+	})
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+		"data":   ref,
 	})
 }
 
@@ -1284,6 +1292,42 @@ func (s *achievementService) UploadAttachmentEndpoint(c *fiber.Ctx) error {
 			"filename": fileName,
 			"url":      fileURL,
 			"type":     fileType,
+		},
+	})
+}
+
+func (s *achievementService) GetAchievementAdminDetailEndpoint(c *fiber.Ctx) error {
+	achievementID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "invalid achievement reference id",
+		})
+	}
+
+	// 1️⃣ Ambil reference dari Postgres
+	ref, err := s.repo.GetAchievementReferenceByID(c.Context(), achievementID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "achievement not found",
+		})
+	}
+
+	// 2️⃣ Ambil detail dari Mongo
+	detail, err := s.repo.GetAchievementDetailFromMongo(
+		c.Context(),
+		ref.MongoAchievementID,
+	)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "achievement detail not found in mongo",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+		"data": fiber.Map{
+			"reference": ref,
+			"detail":    detail,
 		},
 	})
 }

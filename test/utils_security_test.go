@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 	"time"
-	"uas_backend/utils"
+	"projectuasbe/utils"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"

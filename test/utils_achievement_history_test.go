@@ -1,10 +1,10 @@
 package test
 
 import (
+	model "projectuasbe/app/model/Postgresql"
+	"projectuasbe/utils"
 	"testing"
 	"time"
-	model "uas_backend/app/model/Postgresql"
-	"uas_backend/utils"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ func TestAddEntry(t *testing.T) {
 	changedBy := uuid.New()
 
 	t.Run("Add single entry", func(t *testing.T) {
-		entry := model.AchievementHistoryEntry{
+		entry := model.AchievementStatusLog{
 			ID:            uuid.New(),
 			AchievementID: achievementID,
 			Status:        "draft",
@@ -42,13 +42,13 @@ func TestAddEntry(t *testing.T) {
 		manager2 := utils.NewAchievementHistoryManager()
 		achievementID := uuid.New()
 
-		entry1 := model.AchievementHistoryEntry{
+		entry1 := model.AchievementStatusLog{
 			ID:            uuid.New(),
 			AchievementID: achievementID,
 			Status:        "draft",
 			CreatedAt:     time.Now(),
 		}
-		entry2 := model.AchievementHistoryEntry{
+		entry2 := model.AchievementStatusLog{
 			ID:            uuid.New(),
 			AchievementID: achievementID,
 			Status:        "submitted",
@@ -68,13 +68,13 @@ func TestAddEntry(t *testing.T) {
 		achievementID1 := uuid.New()
 		achievementID2 := uuid.New()
 
-		entry1 := model.AchievementHistoryEntry{
+		entry1 := model.AchievementStatusLog{
 			ID:            uuid.New(),
 			AchievementID: achievementID1,
 			Status:        "draft",
 			CreatedAt:     time.Now(),
 		}
-		entry2 := model.AchievementHistoryEntry{
+		entry2 := model.AchievementStatusLog{
 			ID:            uuid.New(),
 			AchievementID: achievementID2,
 			Status:        "submitted",
@@ -101,7 +101,7 @@ func TestGetHistory(t *testing.T) {
 
 	t.Run("Get history for existing achievement", func(t *testing.T) {
 		achievementID := uuid.New()
-		entry := model.AchievementHistoryEntry{
+		entry := model.AchievementStatusLog{
 			ID:            uuid.New(),
 			AchievementID: achievementID,
 			Status:        "verified",
@@ -117,7 +117,7 @@ func TestGetHistory(t *testing.T) {
 	t.Run("History returns copy not reference", func(t *testing.T) {
 		manager2 := utils.NewAchievementHistoryManager()
 		achievementID := uuid.New()
-		entry := model.AchievementHistoryEntry{
+		entry := model.AchievementStatusLog{
 			ID:            uuid.New(),
 			AchievementID: achievementID,
 			Status:        "draft",
@@ -138,7 +138,7 @@ func TestClearHistory(t *testing.T) {
 	manager := utils.NewAchievementHistoryManager()
 	achievementID := uuid.New()
 
-	entry := model.AchievementHistoryEntry{
+	entry := model.AchievementStatusLog{
 		ID:            uuid.New(),
 		AchievementID: achievementID,
 		Status:        "draft",
@@ -164,19 +164,19 @@ func TestGetTotalEntries(t *testing.T) {
 		achievementID1 := uuid.New()
 		achievementID2 := uuid.New()
 
-		manager.AddEntry(model.AchievementHistoryEntry{
+		manager.AddEntry(model.AchievementStatusLog{
 			ID:            uuid.New(),
 			AchievementID: achievementID1,
 			Status:        "draft",
 			CreatedAt:     time.Now(),
 		})
-		manager.AddEntry(model.AchievementHistoryEntry{
+		manager.AddEntry(model.AchievementStatusLog{
 			ID:            uuid.New(),
 			AchievementID: achievementID1,
 			Status:        "submitted",
 			CreatedAt:     time.Now(),
 		})
-		manager.AddEntry(model.AchievementHistoryEntry{
+		manager.AddEntry(model.AchievementStatusLog{
 			ID:            uuid.New(),
 			AchievementID: achievementID2,
 			Status:        "verified",
@@ -195,7 +195,7 @@ func TestAchievementHistoryConcurrency(t *testing.T) {
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
 		go func(index int) {
-			entry := model.AchievementHistoryEntry{
+			entry := model.AchievementStatusLog{
 				ID:            uuid.New(),
 				AchievementID: achievementID,
 				Status:        "draft",
